@@ -12,7 +12,7 @@ services:
     env_file: # 필요한 환경변수 주입
       - .env
     volumes:
-      - /home/ubuntu/application.yml:/leum-server/config/application.yml
+      - ./application.yml:/leum-server/config/application.yml
     networks:
       - leum-server
 
