@@ -1,0 +1,69 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 100
+  sql:
+    init:
+      mode: never
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+    defer-datasource-initialization: true
+
+logging:
+  level:
+    org.hibernate.SQL: info
+    org.springframework.security: info
+
+server:
+  tomcat:
+    threads:
+      max: 1000
+  servlet:
+    session:
+      cookie:
+        http-only: true
+#        secure: false
+        same-site: lax
+
+app:
+  s3:
+    bucket: 'test-dummy-bucket'
+    get-ttl-min: 10
+    put-ttl-min: 10
+  auth:
+    cookie:
+      httpOnly: true
+      secure: false
+      sameSite: 'Lax'
+    method: 'jwt' # session | jwt
+    session:
+      session-ttl-sec: 3600          # 60 * 60 (60분)
+    jwt:
+      access-token-ttl-sec: 300      # 5 * 60 (5분)
+      refresh-token-ttl-sec: 1209600 # 14 * 24 * 3600 (14일)
+      secret-key: 'dGhpcyBpcyB0ZXN0IGtleSBvZiBqd3Qgb3IgYXdzIGxhbWJkYQ==' # 테스트 용 임의 키
+aws:
+  region: test-region
+  lambda:
+    secret-key: 'dGhpcyBpcyB0ZXN0IGtleSBvZiBqd3Qgb3IgYXdzIGxhbWJkYQ==' # 테스트 용 임의 키
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  server:
+    port: 8081
