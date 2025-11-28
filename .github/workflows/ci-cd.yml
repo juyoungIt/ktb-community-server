@@ -1,0 +1,98 @@
+# 정의할 워크 플로우의 이름
+name: Leum Server CI/CD
+
+# 워크플로우를 실행할 이벤트 결정 및 매핑
+on:
+  push:
+    branches:
+      - main # main branch에 코드가 push 되는 경우 사용
+  pull_request:
+    branches:
+      - main
+
+# 실행할 작업을 정의
+jobs:
+  test: # 테스트를 수행하는 단계
+    runs-on: ubuntu-latest # 최신 AMD64 우분투에서 실행될 수 있도록 설정
+    steps:
+      # 1. 소스코드를 체크아웃
+      - name: Checkout Repository
+        uses: actions/checkout@v2 # Github 공식 checkout 액션으로 저장소의 코드를 가져옴
+      # 2. Java 21 런타임 설정
+      - name: Set up Java Runtime
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21' # Java 21 버전을 사용
+          distribution: 'temurin' # Temurin 배포판 사용
+          cache: 'gradle' # Gradle 의존성 캐싱 (빌드 속도 향상 위해)
+      # 3. 테스트 수행
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+
+  build-and-push-image: # 빌드 및 Docker Image push를 수행하는 단계
+    needs: test # build-and-push-image는 test 작업이 완료된 이후 수행되어야 함
+    if: github.event_name == 'push' # PR 자체에 대해서는 해당 이벤트를 발행하지 않음
+    runs-on: ubuntu-latest # 최신 AMD64 우분투에서 실행될 수 있도록 설정
+    steps:
+      # 1. 소스코드를 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v2 # Github 공식 checkout 액션으로 저장소의 코드를 가져옴
+      # 2. ARM 아키텍처로 빌드하기 위한 설정 추가 (amd64 -> arm64 빌드)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      # 3. Docker Buildx 설정 (멀티 플랫폼 빌드)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      # 4. AWS 자격증명 설정
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      # 5. AWS ECR 로그인
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # 6. 이미지 빌드 및 ECR로 Push
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/arm64 # t4g 계열 인스턴스에서 사용하기 위함
+          provenance: false # 불필요한 메타데이터 파일 생성을 막음
+          # 6-1. 배포 자동화에 사용하는 버전 (신규 push에 덮어써짐)
+          # 6-2. 이력을 관리하기 위한 목적 (롤백용)
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/leum-server:latest
+            ${{ steps.login-ecr.outputs.registry }}/leum-server:${{ github.sha }}
+
+  deploy: # 배포를 수행하는 단계
+    needs: build-and-push-image # 빌드 및 push가 이뤄진 이후에 수행함
+    if: github.event_name == 'push' # PR 자체에 대해서는 해당 이벤트를 발행하지 않음
+    runs-on: ubuntu-latest # 최신 AMD64 우분투에서 실행될 수 있도록 설정
+    steps:
+      # 1. 소스코드를 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v2 # Github 공식 checkout 액션으로 저장소의 코드를 가져옴
+      # 2. AWS 자격증명 설정
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      # 3. 작업 실행에 필요한 docker-compose.yml 파일 S3 전송
+      - name: Upload docker-compose to S3
+        run: |
+          aws s3 cp ./docker-compose.yml s3://${{ secrets.DEPLOY_S3_BUCKET_NAME }}/docker-compose.yml
+          aws s3 cp ./Dockerfile s3://${{ secrets.DEPLOY_S3_BUCKET_NAME }}/Dockerfile
+      # 4. ASG Instance Refresh 요청 전송
+      - name: Request ASG Refresh
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
+            --strategy Rolling \
+            --preferences '{"MinHealthyPercentage": 100, "InstanceWarmup": 300}'

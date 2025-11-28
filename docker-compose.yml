@@ -1,18 +1,21 @@
-version: '3'
-services:
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    ports:
-      - "9090:9090" # 프로메테우스 UI 포트
-    volumes:
-      # 1번에서 만든 설정 파일을 Docker 컨테이너 내부로 복사
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+version: '3.8'
 
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
+services:
+  backend:
+    image: ${ECR_REGISTRY}/leum-server:latest
+    build: # Dockerfile을 사용하여 이미지를 빌드하도록 설정
+      context: . # Dockerfile 의 경로 명세
+      dockerfile: Dockerfile # 명시적으로 Dockerfile 명을 지정
     ports:
-      - "3000:3000" # 그라파나 UI 포트
-    depends_on:
-      - prometheus # 프로메테우스가 먼저 실행되도록 설정
+      - "8080:8080" # tomcat 포트번호 오픈
+    restart: always # 예기치 않은 종료가 발생할 경우 항상 재시작을 시도함
+    env_file: # 필요한 환경변수 주입
+      - .env
+    volumes:
+      - /home/ubuntu/application.yml:/leum-server/config/application.yml
+    networks:
+      - leum-server
+
+networks: # 지금 당장 필요하지는 않지만 추후 확장을 고려하여 미리 추가
+  leum-server:
+    driver: bridge
