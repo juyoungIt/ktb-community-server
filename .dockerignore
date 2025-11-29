@@ -1,4 +1,5 @@
 build/
+!build/libs/leum-server.jar
 lambda_functions/
 logs/
 .idea/
