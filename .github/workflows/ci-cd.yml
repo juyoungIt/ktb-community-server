@@ -28,6 +28,16 @@ jobs:
       # 3. 테스트 수행
       - name: Run tests
         run: ./gradlew test --no-daemon
+      # 4. JAR 파일 빌드 (네이티브 AMD64 환경이라 매우 빠름)
+      - name: Build JAR
+        run: ./gradlew bootJar --no-daemon -x test # 위에서 테스트는 했으므로 테스트 없이 빌드 수행
+      # 5. 빌드된 JAR 파일을 아티팩트로 업로드 (다음 Job으로 전달)
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leum-server-jar
+          path: build/libs/leum-server.jar
+          retention-days: 1
 
   build-and-push-image: # 빌드 및 Docker Image push를 수행하는 단계
     needs: test # build-and-push-image는 test 작업이 완료된 이후 수행되어야 함
@@ -37,29 +47,35 @@ jobs:
       # 1. 소스코드를 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v2 # Github 공식 checkout 액션으로 저장소의 코드를 가져옴
-      # 2. ARM 아키텍처로 빌드하기 위한 설정 추가 (amd64 -> arm64 빌드)
+      # 2. 위에서 만든 JAR 파일 다운로드
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: leum-server-jar
+          path: build/libs
+      # 3. ARM 아키텍처로 빌드하기 위한 설정 추가 (amd64 -> arm64 빌드)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      # 3. Docker Buildx 설정 (멀티 플랫폼 빌드)
+      # 4. Docker Buildx 설정 (멀티 플랫폼 빌드)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      # 4. AWS 자격증명 설정
+      # 5. AWS 자격증명 설정
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      # 5. AWS ECR 로그인
+      # 6. AWS ECR 로그인
       - name: Login to AWS ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      # 6. 이미지 빌드 및 ECR로 Push
+      # 7. 이미지 빌드 및 ECR로 Push
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile-ci
           push: true
           platforms: linux/arm64 # t4g 계열 인스턴스에서 사용하기 위함
           provenance: false # 불필요한 메타데이터 파일 생성을 막음
@@ -90,12 +106,12 @@ jobs:
       # 3. 작업 실행에 필요한 docker-compose.yml 파일 S3 전송
       - name: Upload docker-compose to S3
         run: |
-          aws s3 cp ./docker-compose.yml s3://${{ secrets.DEPLOY_S3_BUCKET_NAME }}/docker-compose.yml
-          aws s3 cp ./Dockerfile s3://${{ secrets.DEPLOY_S3_BUCKET_NAME }}/Dockerfile
+          aws s3 cp ./docker-compose-ci.yml s3://${{ secrets.DEPLOY_S3_BUCKET_NAME }}/docker-compose.yml
+          aws s3 cp ./Dockerfile-ci s3://${{ secrets.DEPLOY_S3_BUCKET_NAME }}/Dockerfile
       # 4. ASG Instance Refresh 요청 전송
       - name: Request ASG Refresh
         run: |
           aws autoscaling start-instance-refresh \
             --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
             --strategy Rolling \
-            --preferences '{"MinHealthyPercentage": 100, "InstanceWarmup": 300}'
+            --preferences '{"MinHealthyPercentage": 100, "InstanceWarmup": 100}'

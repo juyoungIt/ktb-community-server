@@ -28,8 +28,9 @@ WORKDIR /leum-server
 # 빌드 결과물 복사
 COPY --from=build /leum-server/build/libs/leum-server.jar leum-server.jar
 
-# 포트 설정
+# 포트 설정 (8080 - 앱, 8081 - 헬스체크)
 EXPOSE 8080
+EXPOSE 8081
 
 # 최종 실행 명령어
 CMD [ "java", "-jar", "leum-server.jar" ]

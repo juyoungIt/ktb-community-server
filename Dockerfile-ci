@@ -1,0 +1,17 @@
+### CI 작업에서 활용하기 위한 목적으로의 Dockerfile
+FROM eclipse-temurin:21-jre-alpine AS production
+
+# 사용자 및 그룹설정
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring
+WORKDIR /leum-server
+
+# Github Action에서 빌드해서 넘겨준 JAR 파일을 복사
+COPY build/libs/leum-server.jar leum-server.jar
+
+# 포트 설정 (8080 - 앱, 8081 - 헬스체크)
+EXPOSE 8080
+EXPOSE 8081
+
+# 최종 실행 명령어
+CMD [ "java", "-jar", "leum-server.jar" ]

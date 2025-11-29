@@ -3,9 +3,6 @@ version: '3.8'
 services:
   backend:
     image: ${ECR_REGISTRY}/leum-server:latest
-    build: # Dockerfile을 사용하여 이미지를 빌드하도록 설정
-      context: . # Dockerfile 의 경로 명세
-      dockerfile: Dockerfile # 명시적으로 Dockerfile 명을 지정
     ports:
       - "8080:8080" # tomcat 포트 오픈
       - "8081:8081" # 헬스체크용 포트 오픈
