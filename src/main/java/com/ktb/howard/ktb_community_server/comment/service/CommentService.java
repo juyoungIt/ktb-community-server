@@ -82,8 +82,11 @@ public class CommentService {
         Slice<GetCommentsDto> comments = commentQueryRepository.findCommentsNextPage(postId, cursor, pageRequest);
         return comments.stream()
                 .map(comment -> {
-                    ImageUrlResponseDto imageViewUrl = imageService
-                            .createImageViewUrl(comment.imageId(), comment.objectKey(), comment.sequence());
+                    ImageUrlResponseDto imageViewUrl = null;
+                    if (comment.imageId() != null) {
+                        imageViewUrl = imageService
+                                .createImageViewUrl(comment.imageId(), comment.objectKey(), comment.sequence());
+                    }
                     return new CommentResponseDto(
                             comment.commentId(),
                             comment.content(),
@@ -92,7 +95,7 @@ public class CommentService {
                             comment.email(),
                             comment.nickname(),
                             comment.imageId(),
-                            imageViewUrl.url()
+                            imageViewUrl != null ? imageViewUrl.url() : null
                     );
                 }).toList();
     }

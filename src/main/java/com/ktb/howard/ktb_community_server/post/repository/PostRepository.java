@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Map;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
@@ -24,17 +23,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Modifying(clearAutomatically = true)
     @Query("update Post p set p.likeCount = :count where p.id = :postId")
     void updateLikeCount(@Param("postId") Long postId, @Param("count") Long count);
-
-    default void bulkUpdateViewCounts(Map<Long, Long> viewCounts) {
-        for (Map.Entry<Long, Long> entry : viewCounts.entrySet()) {
-            updateViewCount(entry.getKey(), entry.getValue());
-        }
-    }
-
-    default void bulkUpdateLikeCounts(Map<Long, Long> likeCounts) {
-        for (Map.Entry<Long, Long> entry : likeCounts.entrySet()) {
-            updateLikeCount(entry.getKey(), entry.getValue());
-        }
-    }
 
 }

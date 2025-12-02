@@ -1,4 +1,4 @@
-package com.ktb.howard.ktb_community_server.basic.controller;
+package com.ktb.howard.ktb_community_server.policy;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;

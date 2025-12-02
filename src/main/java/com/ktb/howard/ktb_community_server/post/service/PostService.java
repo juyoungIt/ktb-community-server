@@ -1,8 +1,6 @@
 package com.ktb.howard.ktb_community_server.post.service;
 
 import com.google.common.base.Strings;
-import com.ktb.howard.ktb_community_server.cache.repository.LikeCountCacheRepository;
-import com.ktb.howard.ktb_community_server.cache.repository.ViewCountCacheRepository;
 import com.ktb.howard.ktb_community_server.exception.InvalidRequestException;
 import com.ktb.howard.ktb_community_server.image.domain.Image;
 import com.ktb.howard.ktb_community_server.image.dto.CreateImageViewUrlRequestDto;
@@ -49,13 +47,12 @@ public class PostService {
     private final ImageService imageService;
     private final MemberService memberService;
     private final ViewLogService viewLogService;
+    private final PostStatService postStatService;
+    private final PostLikeService postLikeService;
+    private final LikeLogService likeLogService;
     private final PostRepository postRepository;
     private final PostQueryRepository postQueryRepository;
-    private final PostLikeService postLikeService;
     private final MemberRepository memberRepository;
-    private final LikeCountCacheRepository likeCountCacheRepository;
-    private final ViewCountCacheRepository viewCountCacheRepository;
-    private final LikeLogService likeLogService;
 
     @Transactional
     public CreatePostResponseDto createPost(
@@ -93,26 +90,40 @@ public class PostService {
         );
     }
 
+    /**
+     * 좋아요, 조회수를 조회 하는 로직이 필요
+     */
     @Transactional(readOnly = true)
     public List<GetPostsResponseDto> getPosts(Long cursor, Integer size) {
         PageRequest pageRequest = PageRequest.of(0, size);
         Slice<GetPostsDto> posts = postQueryRepository.findPostsNextPage(cursor, pageRequest);
         return posts.stream()
                 .map(post -> {
-                    ImageUrlResponseDto imageViewUrl = imageService
-                            .createImageViewUrl(post.imageId(), post.objectKey(), post.sequence());
+                    ImageUrlResponseDto imageViewUrl = null;
+                    if (post.imageId() != null) {
+                        imageViewUrl = imageService
+                                .createImageViewUrl(post.imageId(), post.objectKey(), post.sequence());
+                    }
                     return new GetPostsResponseDto(
                             post.postId(),
                             post.title(),
-                            likeCountCacheRepository.get(post.postId()).intValue(),
+                            postStatService.getLikeCount(post.postId()),
                             post.commentCount(),
-                            viewCountCacheRepository.get(post.postId()),
+                            postStatService.getViewCount(post.postId()),
                             post.createdAt(),
-                            new MemberInfoResponseDto(post.email(), post.nickname(), post.imageId(), imageViewUrl.url())
+                            new MemberInfoResponseDto(
+                                    post.email(),
+                                    post.nickname(),
+                                    post.imageId(),
+                                    imageViewUrl != null ? imageViewUrl.url() : null
+                            )
                     );
                 }).toList();
     }
 
+    /**
+     * 좋아요, 조회수 조회와 함께, 조회수를 업데이트 하는 로직
+     */
     @Transactional
     public PostDetailDto getPostDetail(Long postId, Integer requestMemberId, Boolean isEdit) {
         PostDetailWithLikeInfoDto postDetail = postQueryRepository.getPostDetail(postId, requestMemberId)
@@ -126,7 +137,7 @@ public class PostService {
                 .map(pi -> new PostImageInfoDto(pi.imageId(), pi.url(), pi.sequence(), pi.expiresAt()))
                 .toList();
         if (!isEdit) {
-            viewCountCacheRepository.increaseCount(postId); // Cache에 조회수 갱신
+            postStatService.increaseViewCount(postId); // Cache에 조회수 갱신
             viewLogService.createViewLog(postId, requestMemberId); // 조회 이벤트에 대한 로그 추가
         }
         return PostDetailDto.builder()
@@ -135,23 +146,26 @@ public class PostService {
                 .postImages(postImages)
                 .title(postDetail.title())
                 .content(postDetail.content())
-                .likeCount(likeCountCacheRepository.get(postId).intValue())
-                .viewCount(viewCountCacheRepository.get(postId))
+                .likeCount(postStatService.getLikeCount(postId))
+                .viewCount(postStatService.getViewCount(postId))
                 .commentCount(postDetail.commentCount())
                 .isLiked(postDetail.isLiked())
                 .createdAt(postDetail.createdAt())
                 .build();
     }
 
+    /**
+     * 좋아요 수를 업데이트 하는 로직
+     */
     @Transactional
     public void likePost(Long postId, Integer memberId, LikeLogType type) {
         postLikeService.updatePostLike(postId, memberId, type); // 게시글 좋아요 정보 업데이트
         likeLogService.createLikeLog(postId, memberId, type);   // 게시글 좋아요 로그 추가
         // 캐시정보 갱신
         if (LikeLogType.LIKE.equals(type)) {
-            likeCountCacheRepository.increaseCount(postId);
+            postStatService.increaseLikeCount(postId);
         } else if (LikeLogType.CANCEL.equals(type)) {
-            likeCountCacheRepository.decreaseCount(postId);
+            postStatService.decreaseLikeCount(postId);
         } else {
             log.error("유효하지 않은 좋아요 로그 타입 : {}", type);
             throw new InvalidLikeLogTypeException(INVALID_LIKE_LOG_TYPE);
@@ -225,8 +239,8 @@ public class PostService {
         if (!loginMemberId.equals(findPost.getWriter().getId())) {
             throw new InvalidRequestException(INVALID_REQUEST);
         }
-        likeCountCacheRepository.remove(postId); // 좋아요 수 캐시에서 해당 post 제거
-        viewCountCacheRepository.remove(postId); // 조회수 캐시에서 해당 post 제거
+        postStatService.deleteLikeCount(postId); // 좋아요 수 캐시에서 해당 post 제거
+        postStatService.deleteViewCount(postId); // 조회수 캐시에서 해당 post 제거
         postRepository.deleteById(postId);
     }
 
