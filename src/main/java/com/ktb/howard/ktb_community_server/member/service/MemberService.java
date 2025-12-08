@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,7 +72,7 @@ public class MemberService {
         }
     }
 
-    @Cacheable(value = "members", key = "#memberId", unless = "#result == null")
+    @Cacheable(value = "member", key = "#memberId", unless = "#result == null")
     @Transactional(readOnly = true)
     public MemberInfoResponseDto getProfile(Integer memberId) {
         CreateImageViewUrlRequestDto request = new CreateImageViewUrlRequestDto(PROFILE, memberId.longValue());
@@ -95,7 +96,10 @@ public class MemberService {
         return new MemberInfoResponseDto(email, nickname, imageId, profileImageUrl);
     }
 
-    @CacheEvict(value = "members", key = "#memberId")
+    @Caching(evict = {
+            @CacheEvict(value = "member", key = "#memberId"),
+            @CacheEvict(value = "post-list", key = "0"),
+    })
     @Transactional
     public void updateMember(
             Integer memberId,
@@ -142,7 +146,7 @@ public class MemberService {
         }
     }
 
-    @CacheEvict(value = "members", key = "#memberId")
+    @CacheEvict(value = "member", key = "#memberId")
     @Transactional
     public void deleteMember(Integer memberId) {
         memberRepository.deleteById(memberId.longValue());
