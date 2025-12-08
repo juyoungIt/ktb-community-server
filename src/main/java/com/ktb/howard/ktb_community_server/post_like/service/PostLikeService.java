@@ -1,13 +1,10 @@
 package com.ktb.howard.ktb_community_server.post_like.service;
 
-import com.ktb.howard.ktb_community_server.api.LikeLogErrorCode;
-import com.ktb.howard.ktb_community_server.api.MemberErrorCode;
-import com.ktb.howard.ktb_community_server.api.PostErrorCode;
-import com.ktb.howard.ktb_community_server.like_log.domain.LikeLogType;
 import com.ktb.howard.ktb_community_server.member.domain.Member;
 import com.ktb.howard.ktb_community_server.member.repository.MemberRepository;
 import com.ktb.howard.ktb_community_server.post.domain.Post;
 import com.ktb.howard.ktb_community_server.post.repository.PostRepository;
+import com.ktb.howard.ktb_community_server.post_like.domain.LikeType;
 import com.ktb.howard.ktb_community_server.post_like.domain.PostLike;
 import com.ktb.howard.ktb_community_server.member.exception.MemberNotFoundException;
 import com.ktb.howard.ktb_community_server.post_like.exception.InvalidLikeLogTypeException;
@@ -36,9 +33,9 @@ public class PostLikeService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public void updatePostLike(Long postId, Integer memberId, LikeLogType type) {
+    public void updatePostLike(Long postId, Integer memberId, LikeType type) {
         Optional<PostLike> postLikeOpt = postLikeRepository.findPostLikeByPostIdAndMemberId(postId, memberId);
-        if (LikeLogType.LIKE.equals(type)) {
+        if (LikeType.LIKE.equals(type)) {
             if (postLikeOpt.isPresent()) {
                 log.error("이미 '좋아요'한 게시글 : postId={}, member={}", postId, memberId);
                 throw new PostLikeAlreadyExistException("이미 해당 게시글에 좋아요 한 상태입니다.");
@@ -58,7 +55,7 @@ public class PostLikeService {
                     .post(post)
                     .build();
             postLikeRepository.save(newPostLike);
-        } else if (LikeLogType.CANCEL.equals(type)) {
+        } else if (LikeType.CANCEL.equals(type)) {
             PostLike deletePostLike = postLikeOpt.orElseThrow(() -> {
                 log.error("취소할 좋아요 없음 : postId={}, memberId={}", postId, memberId);
                 return new PostLikeNotFoundException("취소할 좋아요가 없습니다.");

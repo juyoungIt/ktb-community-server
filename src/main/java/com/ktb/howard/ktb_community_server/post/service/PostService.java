@@ -6,7 +6,6 @@ import com.ktb.howard.ktb_community_server.image.domain.Image;
 import com.ktb.howard.ktb_community_server.image.dto.CreateImageViewUrlRequestDto;
 import com.ktb.howard.ktb_community_server.image.dto.ImageUrlResponseDto;
 import com.ktb.howard.ktb_community_server.image.service.ImageService;
-import com.ktb.howard.ktb_community_server.like_log.domain.LikeLogType;
 import com.ktb.howard.ktb_community_server.member.domain.Member;
 import com.ktb.howard.ktb_community_server.member.dto.MemberInfoResponseDto;
 import com.ktb.howard.ktb_community_server.member.exception.MemberNotFoundException;
@@ -18,6 +17,7 @@ import com.ktb.howard.ktb_community_server.post.exception.PostImageNotFoundExcep
 import com.ktb.howard.ktb_community_server.post.exception.PostNotFoundException;
 import com.ktb.howard.ktb_community_server.post.repository.PostQueryRepository;
 import com.ktb.howard.ktb_community_server.post.repository.PostRepository;
+import com.ktb.howard.ktb_community_server.post_like.domain.LikeType;
 import com.ktb.howard.ktb_community_server.post_like.exception.InvalidLikeLogTypeException;
 import com.ktb.howard.ktb_community_server.post_like.service.PostLikeService;
 import lombok.RequiredArgsConstructor;
@@ -149,12 +149,12 @@ public class PostService {
     }
 
     @Transactional
-    public Long likePost(Long postId, Integer memberId, LikeLogType type) {
+    public Long likePost(Long postId, Integer memberId, LikeType type) {
         postLikeService.updatePostLike(postId, memberId, type); // 게시글 좋아요 정보 업데이트
         // 캐시정보 갱신
-        if (LikeLogType.LIKE.equals(type)) {
+        if (LikeType.LIKE.equals(type)) {
             return postStatService.increaseLikeCount(postId);
-        } else if (LikeLogType.CANCEL.equals(type)) {
+        } else if (LikeType.CANCEL.equals(type)) {
             return postStatService.decreaseLikeCount(postId);
         } else {
             log.error("유효하지 않은 좋아요 로그 타입 : {}", type);

@@ -1,34 +1,3 @@
-### 과제용 BASIC 정의
-CREATE TABLE IF NOT EXISTS basic_member (
-    basic_member_id	   BIGINT	      NOT NULL AUTO_INCREMENT              COMMENT '회원에게 부여하는 ID',
-    email	           VARCHAR(254)   NOT NULL                             COMMENT '회원이 로그인 시 사용하는 이메일',
-    password	       VARCHAR(255)	  NOT NULL	                           COMMENT '회원이 로그인 시 사용하는 비밀번호',
-    nickname	       VARCHAR(10)	  NOT NULL	                           COMMENT '커뮤니티 서비스 내에서 사용되는 닉네임',
-    profile_image_url  VARCHAR(1024)      NULL 	                           COMMENT '프로필 이미지가 업로드 되어있는 곳의 주소',
-    created_at	       TIMESTAMP	  NOT NULL DEFAULT CURRENT_TIMESTAMP   COMMENT '회원가입을 진행한 일자, 시각',
-    modified_at	       TIMESTAMP	      NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '가장 마지막으로 회원정보를 수정한 일자, 시각',
-
-    PRIMARY KEY (basic_member_id),
-    UNIQUE (email),
-    UNIQUE (nickname),
-    CHECK (REGEXP_LIKE(email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')),
-    CHECK (CHAR_LENGTH(nickname) <= 10 AND nickname NOT LIKE '% %')
-) COMMENT = '회원정보';
-
-CREATE TABLE IF NOT EXISTS basic_post (
-    basic_post_id     BIGINT	   NOT NULL AUTO_INCREMENT              COMMENT '게시글에 부여되는 ID',
-    basic_member_id	  BIGINT	   NOT NULL	                            COMMENT '작성자의 ID',
-    title	          VARCHAR(100) NOT NULL	                            COMMENT '게시글 제목',
-    content	          LONGTEXT	   NOT NULL	                            COMMENT '게시글 본문',
-    created_at	      TIMESTAMP	   NOT NULL DEFAULT CURRENT_TIMESTAMP   COMMENT '게시글을 최초로 생성한 일자, 시각',
-    modified_at	      TIMESTAMP	       NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '게시글을 마지막으로 수정한 일자, 시각',
-
-    PRIMARY KEY (basic_post_id),
-    FOREIGN KEY (basic_member_id) REFERENCES basic_member (basic_member_id),
-    CHECK (CHAR_LENGTH(title) <= 100)
-) COMMENT = '게시글';
-
-### 실제 시스템이 사용하는 DDL
 CREATE TABLE IF NOT EXISTS member (
     member_id	       INT	          NOT NULL AUTO_INCREMENT              COMMENT '회원에게 부여하는 ID',
     email	           VARCHAR(254)   NOT NULL                             COMMENT '회원이 로그인 시 사용하는 이메일',
@@ -45,20 +14,6 @@ CREATE TABLE IF NOT EXISTS member (
     CHECK (CHAR_LENGTH(nickname) <= 10 AND nickname NOT LIKE '% %')
 ) COMMENT = '회원정보';
 
-CREATE TABLE IF NOT EXISTS like_log (
-    like_log_id	 BIGINT	    NOT NULL AUTO_INCREMENT	           COMMENT '좋아요 기록에 부여되는 ID',
-    member_id	 INT	    NOT NULL	                       COMMENT '좋아요를 클릭한 회원의 ID',
-    post_id	     BIGINT	    NOT NULL	                       COMMENT '좋아요를 받은 게시글의 ID',
-    type         VARCHAR(6) NOT NULL DEFAULT 'LIKE'            COMMENT 'LIKE - 좋아요 클릭, CANCEL - 좋아요 해제',
-    created_at	 TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '좋아요 기록을 생성한 일자, 시각',
-
-    PRIMARY KEY (like_log_id),
-    FOREIGN KEY (member_id) REFERENCES member (member_id),
-    FOREIGN KEY (post_id) REFERENCES post (post_id)
-) COMMENT = '게시글에 대한 좋아요 클릭 로그';
-## Index 설정
-CREATE INDEX idx_like_log_post_member_type_created ON like_log (post_id, member_id, type, created_at);
-
 CREATE TABLE IF NOT EXISTS post_like (
     post_like_id BIGINT	    NOT NULL AUTO_INCREMENT	           COMMENT '게시글 좋아요 상태에 부여되는 ID',
     member_id	 INT	    NOT NULL	                       COMMENT '좋아요를 클릭한 회원의 ID',
@@ -70,19 +25,6 @@ CREATE TABLE IF NOT EXISTS post_like (
     FOREIGN KEY (member_id) REFERENCES member (member_id),
     FOREIGN KEY (post_id) REFERENCES post (post_id)
 ) COMMENT = '게시글 좋아요 상태';
-
-CREATE TABLE IF NOT EXISTS view_log (
-    view_log_id	BIGINT	  NOT NULL AUTO_INCREMENT            COMMENT '조회 기록에 부여되는 ID',
-    member_id	INT	      NOT NULL	                         COMMENT '조회한 회원의 ID',
-    post_id	    BIGINT	  NOT NULL	                         COMMENT '조회된 게시글의 ID',
-    created_at	TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '조회 기록을 생성한 일자, 시각',
-
-    PRIMARY KEY (view_log_id),
-    FOREIGN KEY (member_id) REFERENCES member (member_id),
-    FOREIGN KEY (post_id) REFERENCES post (post_id)
-) COMMENT = '게시글 조회 로그';
-## Index 설정
-CREATE INDEX idx_view_log_post_member_created ON view_log (post_id, member_id, created_at);
 
 CREATE TABLE IF NOT EXISTS post (
     post_id	      BIGINT	  NOT NULL AUTO_INCREMENT              COMMENT '게시글에 부여되는 ID',

@@ -3,9 +3,9 @@ package com.ktb.howard.ktb_community_server.post.controller;
 import com.ktb.howard.ktb_community_server.api.ApiResponse;
 import com.ktb.howard.ktb_community_server.auth.annotation.AuthMember;
 import com.ktb.howard.ktb_community_server.auth.dto.AuthResponseDto;
-import com.ktb.howard.ktb_community_server.like_log.domain.LikeLogType;
 import com.ktb.howard.ktb_community_server.post.dto.*;
 import com.ktb.howard.ktb_community_server.post.service.PostService;
+import com.ktb.howard.ktb_community_server.post_like.domain.LikeType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -63,7 +63,7 @@ public class PostController {
     public ResponseEntity<ApiResponse<Long>> likePost(
             @AuthMember AuthResponseDto responseDto,
             @PathVariable Long postId,
-            @RequestParam("type") LikeLogType type
+            @RequestParam("type") LikeType type
     ) {
         Long likeCount = postService.likePost(postId, responseDto.getMemberId(), type);
         ApiResponse<Long> response = ApiResponse.onSuccess(likeCount);
