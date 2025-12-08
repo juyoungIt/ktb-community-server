@@ -64,29 +64,29 @@ public class PostStatService {
     /**
      * 특정 게시글의 좋아요 수를 1증가 시킴
      */
-    public void increaseLikeCount(long postId) {
+    public Long increaseLikeCount(long postId) {
         String key = String.format(LIKE_COUNT_KEY_FORMAT, postId);
         if (!redisTemplate.hasKey(key)) {
             CountInfoDto countInfo = postRepository.findPostCountInfoById(postId)
                     .orElseThrow(() -> new PostNotFoundException(POST_NOT_FOUND));
             redisTemplate.opsForValue().setIfAbsent(key, String.valueOf(countInfo.likeCount()), LIKE_COUNT_TTL);
         }
-        redisTemplate.opsForValue().increment(key);
         redisTemplate.expire(key, LIKE_COUNT_TTL);
+        return redisTemplate.opsForValue().increment(key);
     }
 
     /**
      * 특정 게시글의 좋아요 수를 1감소 시킴
      */
-    public void decreaseLikeCount(long postId) {
+    public Long decreaseLikeCount(long postId) {
         String key = String.format(LIKE_COUNT_KEY_FORMAT, postId);
         if (!redisTemplate.hasKey(key)) {
             CountInfoDto countInfo = postRepository.findPostCountInfoById(postId)
                     .orElseThrow(() -> new PostNotFoundException(POST_NOT_FOUND));
             redisTemplate.opsForValue().setIfAbsent(key, String.valueOf(countInfo.likeCount()), LIKE_COUNT_TTL);
         }
-        redisTemplate.opsForValue().decrement(key);
         redisTemplate.expire(key, LIKE_COUNT_TTL);
+        return redisTemplate.opsForValue().decrement(key);
     }
 
     /**

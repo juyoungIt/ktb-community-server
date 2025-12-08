@@ -17,13 +17,15 @@ import com.ktb.howard.ktb_community_server.post.domain.Post;
 import com.ktb.howard.ktb_community_server.post.exception.PostNotFoundException;
 import com.ktb.howard.ktb_community_server.post.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.ktb.howard.ktb_community_server.api.CommentErrorCode.*;
 import static com.ktb.howard.ktb_community_server.api.CommonErrorCode.INVALID_REQUEST;
@@ -40,6 +42,7 @@ public class CommentService {
     private final MemberRepository memberRepository;
     private final ImageService imageService;
 
+    @CacheEvict(value = "postComments", key = "#postId")
     @Transactional
     public CreateCommentResponseDto createComment(
             Long postId,
@@ -66,7 +69,8 @@ public class CommentService {
                 .content(content)
                 .build();
         Comment savedComment = commentRepository.save(comment);
-        post.increaseCommentCount(); // 댓글 수 1증가
+        // 4. 댓글 수 1증가 처리
+        post.increaseCommentCount();
         return new CreateCommentResponseDto(
                 savedComment.getId(),
                 savedComment.getPost().getId(),
@@ -76,69 +80,72 @@ public class CommentService {
         );
     }
 
+    @Cacheable(value = "postComments", key = "#postId", condition = "#cursor == 0", unless = "#result.isEmpty()")
     @Transactional(readOnly = true)
     public List<CommentResponseDto> getComments(Long postId, Long cursor, Integer size) {
         PageRequest pageRequest = PageRequest.of(0, size);
         Slice<GetCommentsDto> comments = commentQueryRepository.findCommentsNextPage(postId, cursor, pageRequest);
         return comments.stream()
-                .map(comment -> {
+                .map(c -> {
                     ImageUrlResponseDto imageViewUrl = null;
-                    if (comment.imageId() != null) {
-                        imageViewUrl = imageService
-                                .createImageViewUrl(comment.imageId(), comment.objectKey(), comment.sequence());
+                    if (c.imageId() != null) {
+                        imageViewUrl = imageService.createImageViewUrl(c.imageId(), c.objectKey(), c.sequence());
                     }
                     return new CommentResponseDto(
-                            comment.commentId(),
-                            comment.content(),
-                            comment.createdAt(),
-                            comment.deletedAt(),
-                            comment.email(),
-                            comment.nickname(),
-                            comment.imageId(),
+                            c.commentId(),
+                            c.content(),
+                            c.createdAt(),
+                            c.deletedAt(),
+                            c.email(),
+                            c.nickname(),
+                            c.imageId(),
                             imageViewUrl != null ? imageViewUrl.url() : null
                     );
-                }).toList();
+                }).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<CommentResponseDto> getChildComments(Long parentCommentId) {
         return commentQueryRepository.getChildComments(parentCommentId).stream()
-                .map(comment -> {
-                    ImageUrlResponseDto imageViewUrl = imageService
-                            .createImageViewUrl(comment.imageId(), comment.objectKey(), comment.sequence());
+                .map(c -> {
+                    ImageUrlResponseDto imageViewUrl = null;
+                    if (c.imageId() != null) {
+                        imageViewUrl = imageService.createImageViewUrl(c.imageId(), c.objectKey(), c.sequence());
+                    }
                     return new CommentResponseDto(
-                            comment.commentId(),
-                            comment.content(),
-                            comment.createdAt(),
-                            comment.deletedAt(),
-                            comment.email(),
-                            comment.nickname(),
-                            comment.imageId(),
-                            imageViewUrl.url()
+                            c.commentId(),
+                            c.content(),
+                            c.createdAt(),
+                            c.deletedAt(),
+                            c.email(),
+                            c.nickname(),
+                            c.imageId(),
+                            imageViewUrl != null ? imageViewUrl.url() : null
                     );
                 })
-                .toList();
+                .collect(Collectors.toList());
     }
 
+    @CacheEvict(value = "postComments", key = "#result.post.id")
     @Transactional
-    public void updateComment(Integer loginMemberId, Long commentId, String content) {
+    public Comment updateComment(Integer loginMemberId, Long commentId, String content) {
         Comment findComment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CommentNotFoundException(COMMENT_NOT_FOUND));
         if (!loginMemberId.equals(findComment.getMember().getId())) {
             throw new InvalidRequestException(INVALID_REQUEST);
         }
-        findComment.updateContent(content);
+        return findComment.updateContent(content);
     }
 
+    @CacheEvict(value = "postComments", key = "#result.post.id")
     @Transactional
-    public void softDeleteByCommentId(Integer loginMemberId, Long commentId) {
+    public Comment softDeleteByCommentId(Integer loginMemberId, Long commentId) {
         Comment findComment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CommentNotFoundException(COMMENT_NOT_FOUND));
         if (!loginMemberId.equals(findComment.getMember().getId())) {
             throw new InvalidRequestException(INVALID_REQUEST);
         }
-        findComment.getPost().decreaseCommentCount(); // 댓글 갯수 1감소
-        findComment.updateDeletedAt(LocalDateTime.now());
+        return findComment.deleteComment();
     }
 
 }

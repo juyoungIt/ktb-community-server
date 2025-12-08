@@ -52,8 +52,15 @@ public class Comment extends BaseEntity {
         this.content = content;
     }
 
-    public void updateContent(String content) {
+    public Comment updateContent(String content) {
         this.content = content;
+        return this;
+    }
+
+    public Comment deleteComment() {
+        this.getPost().decreaseCommentCount(); // 댓글 갯수 1감소
+        this.updateDeletedAt(LocalDateTime.now());
+        return this;
     }
 
 }

@@ -60,13 +60,13 @@ public class PostController {
     }
 
     @PatchMapping("/{postId}/like")
-    public ResponseEntity<ApiResponse<String>> likePost(
+    public ResponseEntity<ApiResponse<Long>> likePost(
             @AuthMember AuthResponseDto responseDto,
             @PathVariable Long postId,
             @RequestParam("type") LikeLogType type
     ) {
-        postService.likePost(postId, responseDto.getMemberId(), type);
-        ApiResponse<String> response = ApiResponse.onSuccess("게시글 좋아요 정보를 반영했습니다.");
+        Long likeCount = postService.likePost(postId, responseDto.getMemberId(), type);
+        ApiResponse<Long> response = ApiResponse.onSuccess(likeCount);
         return ResponseEntity.ok(response);
     }
 

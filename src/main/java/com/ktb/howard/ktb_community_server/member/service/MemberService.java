@@ -11,6 +11,8 @@ import com.ktb.howard.ktb_community_server.member.exception.*;
 import com.ktb.howard.ktb_community_server.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +71,10 @@ public class MemberService {
         }
     }
 
+    @Cacheable(
+            value = "members",
+            key = "#memberId",
+            unless = "#result == null")
     @Transactional(readOnly = true)
     public MemberInfoResponseDto getProfile(Integer memberId) {
         CreateImageViewUrlRequestDto request = new CreateImageViewUrlRequestDto(PROFILE, memberId.longValue());
@@ -92,6 +98,7 @@ public class MemberService {
         return new MemberInfoResponseDto(email, nickname, imageId, profileImageUrl);
     }
 
+    @CacheEvict(value = "members", key = "#memberId")
     @Transactional
     public void updateMember(
             Integer memberId,
@@ -138,6 +145,7 @@ public class MemberService {
         }
     }
 
+    @CacheEvict(value = "members", key = "#memberId")
     @Transactional
     public void deleteMember(Integer memberId) {
         memberRepository.deleteById(memberId.longValue());

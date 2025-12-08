@@ -7,7 +7,6 @@ import com.ktb.howard.ktb_community_server.image.dto.CreateImageViewUrlRequestDt
 import com.ktb.howard.ktb_community_server.image.dto.ImageUrlResponseDto;
 import com.ktb.howard.ktb_community_server.image.service.ImageService;
 import com.ktb.howard.ktb_community_server.like_log.domain.LikeLogType;
-import com.ktb.howard.ktb_community_server.like_log.service.LikeLogService;
 import com.ktb.howard.ktb_community_server.member.domain.Member;
 import com.ktb.howard.ktb_community_server.member.dto.MemberInfoResponseDto;
 import com.ktb.howard.ktb_community_server.member.exception.MemberNotFoundException;
@@ -21,9 +20,9 @@ import com.ktb.howard.ktb_community_server.post.repository.PostQueryRepository;
 import com.ktb.howard.ktb_community_server.post.repository.PostRepository;
 import com.ktb.howard.ktb_community_server.post_like.exception.InvalidLikeLogTypeException;
 import com.ktb.howard.ktb_community_server.post_like.service.PostLikeService;
-import com.ktb.howard.ktb_community_server.view_log.service.ViewLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -46,10 +45,8 @@ public class PostService {
 
     private final ImageService imageService;
     private final MemberService memberService;
-    private final ViewLogService viewLogService;
     private final PostStatService postStatService;
     private final PostLikeService postLikeService;
-    private final LikeLogService likeLogService;
     private final PostRepository postRepository;
     private final PostQueryRepository postQueryRepository;
     private final MemberRepository memberRepository;
@@ -90,9 +87,10 @@ public class PostService {
         );
     }
 
-    /**
-     * 좋아요, 조회수를 조회 하는 로직이 필요
-     */
+    @Cacheable(
+            value = "posts",
+            key = "{ #cursor, #size }",
+            unless = "#result.isEmpty()")
     @Transactional(readOnly = true)
     public List<GetPostsResponseDto> getPosts(Long cursor, Integer size) {
         PageRequest pageRequest = PageRequest.of(0, size);
@@ -118,13 +116,10 @@ public class PostService {
                                     imageViewUrl != null ? imageViewUrl.url() : null
                             )
                     );
-                }).toList();
+                }).collect(Collectors.toList());
     }
 
-    /**
-     * 좋아요, 조회수 조회와 함께, 조회수를 업데이트 하는 로직
-     */
-    @Transactional
+    @Transactional(readOnly = true)
     public PostDetailDto getPostDetail(Long postId, Integer requestMemberId, Boolean isEdit) {
         PostDetailWithLikeInfoDto postDetail = postQueryRepository.getPostDetail(postId, requestMemberId)
                 .orElseThrow(() -> {
@@ -138,7 +133,6 @@ public class PostService {
                 .toList();
         if (!isEdit) {
             postStatService.increaseViewCount(postId); // Cache에 조회수 갱신
-            viewLogService.createViewLog(postId, requestMemberId); // 조회 이벤트에 대한 로그 추가
         }
         return PostDetailDto.builder()
                 .postId(postId)
@@ -154,18 +148,14 @@ public class PostService {
                 .build();
     }
 
-    /**
-     * 좋아요 수를 업데이트 하는 로직
-     */
     @Transactional
-    public void likePost(Long postId, Integer memberId, LikeLogType type) {
+    public Long likePost(Long postId, Integer memberId, LikeLogType type) {
         postLikeService.updatePostLike(postId, memberId, type); // 게시글 좋아요 정보 업데이트
-        likeLogService.createLikeLog(postId, memberId, type);   // 게시글 좋아요 로그 추가
         // 캐시정보 갱신
         if (LikeLogType.LIKE.equals(type)) {
-            postStatService.increaseLikeCount(postId);
+            return postStatService.increaseLikeCount(postId);
         } else if (LikeLogType.CANCEL.equals(type)) {
-            postStatService.decreaseLikeCount(postId);
+            return postStatService.decreaseLikeCount(postId);
         } else {
             log.error("유효하지 않은 좋아요 로그 타입 : {}", type);
             throw new InvalidLikeLogTypeException(INVALID_LIKE_LOG_TYPE);
