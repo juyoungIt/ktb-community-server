@@ -6,6 +6,7 @@ import com.ktb.howard.ktb_community_server.infra.aws.s3.exception.FileStorageExc
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -61,6 +62,7 @@ public class S3Service {
         }
     }
 
+    @Cacheable(value = "s3:get-presigned-url", key = "#objectKey", unless = "#result == null")
     public PresignedUrl createGetObjectPresignedUrl(String objectKey) {
         try {
             GetObjectRequest objectRequest = GetObjectRequest.builder()
