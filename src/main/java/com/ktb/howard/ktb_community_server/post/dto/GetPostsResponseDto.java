@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
-@AllArgsConstructor
 public class GetPostsResponseDto {
     private Long postId;
     private String title;
@@ -18,4 +17,22 @@ public class GetPostsResponseDto {
     private Long viewCount;
     private LocalDateTime createdAt;
     private MemberInfoResponseDto writer;
+
+    public GetPostsResponseDto(
+            Long postId,
+            String title,
+            Integer likeCount,
+            Long commentCount,
+            Long viewCount,
+            LocalDateTime createdAt,
+            MemberInfoResponseDto writer
+    ) {
+        this.postId = postId;
+        this.title = title;
+        this.likeCount = likeCount;
+        this.commentCount = commentCount;
+        this.viewCount = viewCount;
+        this.createdAt = createdAt.plusHours(9); // UTC to KST
+        this.writer = writer;
+    }
 }

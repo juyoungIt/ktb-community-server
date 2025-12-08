@@ -144,7 +144,7 @@ public class PostService {
                 .viewCount(postStatService.getViewCount(postId))
                 .commentCount(postDetail.commentCount())
                 .isLiked(postDetail.isLiked())
-                .createdAt(postDetail.createdAt())
+                .createdAt(postDetail.createdAt().plusHours(9)) // UTC to KST
                 .build();
     }
 

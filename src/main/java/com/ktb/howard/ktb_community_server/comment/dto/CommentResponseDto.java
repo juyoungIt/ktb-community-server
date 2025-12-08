@@ -33,8 +33,8 @@ public class CommentResponseDto {
         this.commentId = commentId;
         this.content = content;
         this.writerInfo = new MemberInfoResponseDto(email, nickname, imageId, writerProfileImageUrl);
-        this.createdAt = createdAt;
-        this.deletedAt = deletedAt;
+        this.createdAt = createdAt.plusHours(9); // UTC to KST (1)
+        this.deletedAt = deletedAt == null ? deletedAt : deletedAt.plusHours(9); // UTC to KST (2)
     }
 
 }
