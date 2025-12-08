@@ -22,7 +22,11 @@ import com.ktb.howard.ktb_community_server.post_like.exception.InvalidLikeLogTyp
 import com.ktb.howard.ktb_community_server.post_like.service.PostLikeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -50,7 +54,10 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostQueryRepository postQueryRepository;
     private final MemberRepository memberRepository;
+    @Lazy @Autowired
+    private PostService postService;
 
+    @CacheEvict(value = "post-list", key = "0")
     @Transactional
     public CreatePostResponseDto createPost(
             Integer memberId,
@@ -88,9 +95,11 @@ public class PostService {
     }
 
     @Cacheable(
-            value = "posts",
-            key = "{ #cursor, #size }",
-            unless = "#result.isEmpty()")
+            value = "post-list",
+            key = "#cursor",
+            condition = "#cursor == 0",
+            unless = "#result.isEmpty()"
+    )
     @Transactional(readOnly = true)
     public List<GetPostsResponseDto> getPosts(Long cursor, Integer size) {
         PageRequest pageRequest = PageRequest.of(0, size);
@@ -121,7 +130,28 @@ public class PostService {
 
     @Transactional(readOnly = true)
     public PostDetailDto getPostDetail(Long postId, Integer requestMemberId, Boolean isEdit) {
-        PostDetailWithLikeInfoDto postDetail = postQueryRepository.getPostDetail(postId, requestMemberId)
+        PostDetailDto postDetail = postService.getPostDetailContent(postId); // proxy를 태우기 위함
+        if (!isEdit) {
+            postStatService.increaseViewCount(postId); // Cache에 조회수 갱신
+        }
+        return new PostDetailDto(
+                postId,
+                postDetail.getWriter(),
+                postDetail.getPostImages(),
+                postDetail.getTitle(),
+                postDetail.getContent(),
+                postStatService.getLikeCount(postId),
+                postStatService.getViewCount(postId),
+                postDetail.getCommentCount(),
+                postLikeService.isLikeExist(postId, requestMemberId),
+                postDetail.getCreatedAt()
+        );
+    }
+
+    @Cacheable(value = "post", key = "#postId", unless = "#result == null")
+    @Transactional(readOnly = true)
+    public PostDetailDto getPostDetailContent(Long postId) {
+        PostDetailWithLikeInfoDto postDetail = postQueryRepository.getPostDetail(postId)
                 .orElseThrow(() -> {
                     log.error("찾을 수 없는 게시글 = {}", postId);
                     return new PostNotFoundException(POST_NOT_FOUND);
@@ -131,21 +161,15 @@ public class PostService {
                 .stream()
                 .map(pi -> new PostImageInfoDto(pi.imageId(), pi.url(), pi.sequence(), pi.expiresAt()))
                 .toList();
-        if (!isEdit) {
-            postStatService.increaseViewCount(postId); // Cache에 조회수 갱신
-        }
-        return PostDetailDto.builder()
-                .postId(postId)
-                .writer(profile)
-                .postImages(postImages)
-                .title(postDetail.title())
-                .content(postDetail.content())
-                .likeCount(postStatService.getLikeCount(postId))
-                .viewCount(postStatService.getViewCount(postId))
-                .commentCount(postDetail.commentCount())
-                .isLiked(postDetail.isLiked())
-                .createdAt(postDetail.createdAt().plusHours(9)) // UTC to KST
-                .build();
+        return new PostDetailDto(
+                postId,
+                profile,
+                postImages,
+                postDetail.title(),
+                postDetail.content(),
+                postDetail.commentCount(),
+                postDetail.createdAt()
+        );
     }
 
     @Transactional
@@ -162,6 +186,10 @@ public class PostService {
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "post", key = "#postId"),
+            @CacheEvict(value = "post-list", key = "0"),
+    })
     @Transactional
     public void updatePost(
             Integer loginMemberId,
@@ -222,6 +250,10 @@ public class PostService {
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "post", key = "#postId"),
+            @CacheEvict(value = "post-list", key = "0"),
+    })
     @Transactional
     public void deletePostById(Integer loginMemberId, Long postId) {
         Post findPost = postRepository.findById(postId)

@@ -11,7 +11,6 @@ public record PostDetailWithLikeInfoDto(
         Integer likeCount,
         Long viewCount,
         Long commentCount,
-        Boolean isLiked,
         Integer writerId,
         String writerEmail,
         String writerNickname,

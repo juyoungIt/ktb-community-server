@@ -32,6 +32,11 @@ public class PostLikeService {
     private final PostRepository postRepository;
     private final MemberRepository memberRepository;
 
+    @Transactional(readOnly = true)
+    public Boolean isLikeExist(Long postId, Integer memberId) {
+        return postLikeRepository.findPostLikeByPostIdAndMemberId(postId, memberId).isPresent();
+    }
+
     @Transactional
     public void updatePostLike(Long postId, Integer memberId, LikeType type) {
         Optional<PostLike> postLikeOpt = postLikeRepository.findPostLikeByPostIdAndMemberId(postId, memberId);

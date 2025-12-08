@@ -19,7 +19,6 @@ import java.util.Optional;
 import static com.ktb.howard.ktb_community_server.image.domain.QImage.image;
 import static com.ktb.howard.ktb_community_server.member.domain.QMember.member;
 import static com.ktb.howard.ktb_community_server.post.domain.QPost.post;
-import static com.ktb.howard.ktb_community_server.post_like.domain.QPostLike.postLike;
 
 @AllArgsConstructor
 @Repository
@@ -62,7 +61,7 @@ public class PostQueryRepository {
         return new SliceImpl<>(posts, pageRequest, hasNext);
     }
 
-    public Optional<PostDetailWithLikeInfoDto> getPostDetail(Long postId, Integer memberId) {
+    public Optional<PostDetailWithLikeInfoDto> getPostDetail(Long postId) {
         PostDetailWithLikeInfoDto postDetail = queryFactory
                 .select(new QPostDetailWithLikeInfoDto(
                         post.id,
@@ -71,15 +70,12 @@ public class PostQueryRepository {
                         post.likeCount,
                         post.viewCount,
                         post.commentCount,
-                        postLike.isNotNull(),
                         post.writer.id,
                         post.writer.email,
                         post.writer.nickname,
                         post.createdAt
                 ))
                 .from(post)
-                .leftJoin(postLike)
-                    .on(post.id.eq(postLike.post.id).and(postLike.member.id.eq(memberId)))
                 .where(post.id.eq(postId))
                 .fetchFirst();
         return Optional.ofNullable(postDetail);
