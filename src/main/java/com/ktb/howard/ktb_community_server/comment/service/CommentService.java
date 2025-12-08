@@ -42,7 +42,7 @@ public class CommentService {
     private final MemberRepository memberRepository;
     private final ImageService imageService;
 
-    @CacheEvict(value = "postComments", key = "#postId")
+    @CacheEvict(value = "post:comment", key = "#postId")
     @Transactional
     public CreateCommentResponseDto createComment(
             Long postId,
@@ -80,7 +80,7 @@ public class CommentService {
         );
     }
 
-    @Cacheable(value = "postComments", key = "#postId", condition = "#cursor == 0", unless = "#result.isEmpty()")
+    @Cacheable(value = "post:comment", key = "#postId", condition = "#cursor == 0", unless = "#result.isEmpty()")
     @Transactional(readOnly = true)
     public List<CommentResponseDto> getComments(Long postId, Long cursor, Integer size) {
         PageRequest pageRequest = PageRequest.of(0, size);
@@ -126,7 +126,7 @@ public class CommentService {
                 .collect(Collectors.toList());
     }
 
-    @CacheEvict(value = "postComments", key = "#result.post.id")
+    @CacheEvict(value = "post:comment", key = "#result.post.id")
     @Transactional
     public Comment updateComment(Integer loginMemberId, Long commentId, String content) {
         Comment findComment = commentRepository.findById(commentId)
@@ -137,7 +137,7 @@ public class CommentService {
         return findComment.updateContent(content);
     }
 
-    @CacheEvict(value = "postComments", key = "#result.post.id")
+    @CacheEvict(value = "post:comment", key = "#result.post.id")
     @Transactional
     public Comment softDeleteByCommentId(Integer loginMemberId, Long commentId) {
         Comment findComment = commentRepository.findById(commentId)
