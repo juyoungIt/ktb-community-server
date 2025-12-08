@@ -83,11 +83,11 @@ public class ImageService {
                     createdImage.getFileSize()
             );
             response.add(new ImageUrlResponseDto(
-                    presignedUrl.presignedUrl(),
+                    presignedUrl.getPresignedUrl(),
                     createdImage.getId(),
                     createdImage.getSequence(),
-                    presignedUrl.httpMethod(),
-                    presignedUrl.expiresAt()
+                    presignedUrl.getHttpMethod(),
+                    presignedUrl.getExpiresAt()
             ));
         }
         return response;
@@ -100,11 +100,11 @@ public class ImageService {
                 .map(image -> {
                     PresignedUrl presignedUrl = s3Service.createGetObjectPresignedUrl(image.getObjectKey());
                     return new ImageUrlResponseDto(
-                            presignedUrl.presignedUrl(),
+                            presignedUrl.getPresignedUrl(),
                             image.getId(),
                             image.getSequence(),
-                            presignedUrl.httpMethod(),
-                            presignedUrl.expiresAt()
+                            presignedUrl.getHttpMethod(),
+                            presignedUrl.getExpiresAt()
                     );
                 })
                 .toList();
@@ -114,11 +114,11 @@ public class ImageService {
     public ImageUrlResponseDto createImageViewUrl(Long imageId, String objectKey, Integer sequence) {
         PresignedUrl presignedUrl = s3Service.createGetObjectPresignedUrl(objectKey);
         return new ImageUrlResponseDto(
-                presignedUrl.presignedUrl(),
+                presignedUrl.getPresignedUrl(),
                 imageId,
                 sequence,
-                presignedUrl.httpMethod(),
-                presignedUrl.expiresAt()
+                presignedUrl.getHttpMethod(),
+                presignedUrl.getExpiresAt()
         );
     }
 

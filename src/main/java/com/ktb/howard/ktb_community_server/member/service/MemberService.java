@@ -71,10 +71,7 @@ public class MemberService {
         }
     }
 
-    @Cacheable(
-            value = "members",
-            key = "#memberId",
-            unless = "#result == null")
+    @Cacheable(value = "members", key = "#memberId", unless = "#result == null")
     @Transactional(readOnly = true)
     public MemberInfoResponseDto getProfile(Integer memberId) {
         CreateImageViewUrlRequestDto request = new CreateImageViewUrlRequestDto(PROFILE, memberId.longValue());

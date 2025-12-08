@@ -53,7 +53,7 @@ public class S3Service {
             PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(presignRequest);
             return new PresignedUrl(
                     presigned.url().toString(),
-                    HttpMethod.PUT,
+                    HttpMethod.PUT.toString(),
                     presigned.expiration()
             );
         } catch (SdkException e) {
@@ -78,7 +78,7 @@ public class S3Service {
             PresignedGetObjectRequest presigned = s3Presigner.presignGetObject(presignRequest);
             return new PresignedUrl(
                     presigned.url().toString(),
-                    HttpMethod.GET,
+                    HttpMethod.GET.toString(),
                     presigned.expiration()
             );
         } catch (SdkException e) {
